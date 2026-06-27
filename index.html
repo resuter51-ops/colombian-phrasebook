@@ -93,6 +93,112 @@
     color: rgba(255,255,255,0.9); font-size: 0.78rem; line-height: 1.5;
   }
   .save-hint b { color: white; }
+
+  /* Add Phrase Button */
+  .add-phrase-btn {
+    display: block;
+    width: calc(100% - 32px);
+    margin: 12px 16px;
+    padding: 14px;
+    background: linear-gradient(135deg, #003893, #CE1126);
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: 0.5px;
+  }
+  .add-phrase-btn:active { opacity: 0.85; }
+
+  /* Modal overlay */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 999;
+    align-items: flex-end;
+    justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal-box {
+    background: white;
+    border-radius: 24px 24px 0 0;
+    padding: 24px 20px 40px;
+    width: 100%;
+    max-width: 500px;
+    animation: slideUp 0.25s ease;
+  }
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+  .modal-title {
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #2c3e50;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  .modal-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+    margin-top: 12px;
+  }
+  .modal-input, .modal-select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    font-size: 1rem;
+    color: #2c3e50;
+    box-sizing: border-box;
+    outline: none;
+    font-family: inherit;
+  }
+  .modal-input:focus, .modal-select:focus { border-color: #003893; }
+  .modal-btn-row { display: flex; gap: 10px; margin-top: 18px; }
+  .modal-cancel {
+    flex: 1; padding: 13px; border: 2px solid #ddd; background: white;
+    border-radius: 12px; font-size: 0.95rem; font-weight: 700;
+    color: #666; cursor: pointer;
+  }
+  .modal-save {
+    flex: 2; padding: 13px;
+    background: linear-gradient(135deg, #003893, #CE1126);
+    border: none; border-radius: 12px;
+    font-size: 0.95rem; font-weight: 700; color: white; cursor: pointer;
+  }
+  .modal-save:active, .modal-cancel:active { opacity: 0.8; }
+  .modal-error { color: #CE1126; font-size: 0.82rem; margin-top: 8px; text-align: center; min-height: 18px; }
+
+  /* Custom phrase delete button */
+  .delete-phrase {
+    position: absolute; top: 8px; right: 8px;
+    background: none; border: none;
+    color: #ccc; font-size: 1rem; cursor: pointer;
+    padding: 4px 6px; border-radius: 8px;
+    line-height: 1;
+  }
+  .delete-phrase:active { color: #CE1126; }
+  .custom-badge {
+    display: inline-block;
+    background: #f0f4ff;
+    color: #003893;
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 6px;
+    margin-left: 6px;
+    letter-spacing: 0.5px;
+    vertical-align: middle;
+  }
+
 </style>
 </head>
 <body>
@@ -116,6 +222,40 @@
 
 <div class="cat-row" id="catRow"></div>
 <div class="phrase-list" id="phraseList"></div>
+
+
+<button class="add-phrase-btn" onclick="openAddModal()">＋ Add My Own Phrase</button>
+
+<!-- Add Phrase Modal -->
+<div class="modal-overlay" id="addModal" onclick="closeModalIfOutside(event)">
+  <div class="modal-box">
+    <div class="modal-title">✏️ Add a New Phrase</div>
+
+    <div class="modal-label">Category</div>
+    <select class="modal-select" id="newCat">
+      <option value="My Phrases">My Phrases</option>
+      <option value="Meals &amp; Drinks">Meals &amp; Drinks</option>
+      <option value="Personal Care">Personal Care</option>
+      <option value="Medical">Medical</option>
+      <option value="Common Requests">Common Requests</option>
+      <option value="Feelings &amp; Social">Feelings &amp; Social</option>
+      <option value="Mobility">Mobility</option>
+      <option value="Sleep &amp; Rest">Sleep &amp; Rest</option>
+    </select>
+
+    <div class="modal-label">English phrase</div>
+    <input class="modal-input" id="newEn" type="text" placeholder="e.g. I need more blankets" maxlength="120"/>
+
+    <div class="modal-label">Spanish translation</div>
+    <input class="modal-input" id="newEs" type="text" placeholder="e.g. Necesito más cobijas" maxlength="120"/>
+
+    <div class="modal-error" id="modalError"></div>
+    <div class="modal-btn-row">
+      <button class="modal-cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-save" onclick="saveCustomPhrase()">Save Phrase ✓</button>
+    </div>
+  </div>
+</div>
 
 <div class="now-speaking" id="nowSpeaking">
   <span class="wave">🔊</span> <span id="speakingText"></span>
@@ -288,7 +428,31 @@ let direction = 'en-es';
 let activeCat = 'All';
 let searchQuery = '';
 
-const CATEGORIES = ['All', ...Array.from(new Set(PHRASES.map(p => p.cat)))];
+// Load custom phrases from localStorage
+function loadCustomPhrases() {
+  try {
+    return JSON.parse(localStorage.getItem('customPhrases') || '[]');
+  } catch { return []; }
+}
+function saveCustomPhrasesToStorage(arr) {
+  localStorage.setItem('customPhrases', JSON.stringify(arr));
+}
+
+let CUSTOM_PHRASES = loadCustomPhrases();
+
+function getAllPhrases() {
+  return [...PHRASES, ...CUSTOM_PHRASES];
+}
+
+function getCategories() {
+  const all = getAllPhrases();
+  const cats = ['All', ...Array.from(new Set(all.map(p => p.cat)))];
+  // Ensure "My Phrases" always shows if there are custom phrases
+  if (CUSTOM_PHRASES.length > 0 && !cats.includes('My Phrases')) {
+    cats.push('My Phrases');
+  }
+  return cats;
+}
 
 // ===== INIT =====
 function init() {
@@ -333,8 +497,9 @@ function setDir(dir) {
 function renderPhrases() {
   searchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
   const list = document.getElementById('phraseList');
+  const all = getAllPhrases();
 
-  let filtered = PHRASES;
+  let filtered = all;
   if (activeCat !== 'All') filtered = filtered.filter(p => p.cat === activeCat);
   if (searchQuery) filtered = filtered.filter(p =>
     p.en.toLowerCase().includes(searchQuery) || p.es.toLowerCase().includes(searchQuery)
@@ -346,14 +511,20 @@ function renderPhrases() {
   }
 
   const isEnEs = direction === 'en-es';
-  list.innerHTML = filtered.map((p, i) => {
+  list.innerHTML = filtered.map((p) => {
+    const isCustom = !!p.custom;
     const primary = isEnEs ? p.en : p.es;
     const secondary = isEnEs ? p.es : p.en;
     const primaryLang = isEnEs ? '🇺🇸' : '🇨🇴';
     const secondaryLang = isEnEs ? '🇨🇴' : '🇺🇸';
+    const deleteBtn = isCustom
+      ? `<button class="delete-phrase" onclick="event.stopPropagation();deleteCustomPhrase('${p.id}')" title="Delete">✕</button>`
+      : '';
+    const customBadge = isCustom ? '<span class="custom-badge">MY PHRASE</span>' : '';
     return `
-      <div class="phrase-card" onclick="speakPhrase(${PHRASES.indexOf(p)})">
-        <div class="phrase-tag">${p.cat}</div>
+      <div class="phrase-card" style="position:relative;" onclick="speakPhraseText('${secondary.replace(/'/g, "\'")}', '${isEnEs ? 'es-ES' : 'en-US'}')">
+        ${deleteBtn}
+        <div class="phrase-tag">${p.cat}${customBadge}</div>
         <div class="phrase-en">${primaryLang} ${primary}</div>
         <div class="phrase-es"><span class="speak-icon">🔊</span>${secondaryLang} ${secondary}</div>
       </div>
@@ -361,12 +532,7 @@ function renderPhrases() {
   }).join('');
 }
 
-function speakPhrase(idx) {
-  const p = PHRASES[idx];
-  // Speak the SECONDARY language (the translation)
-  const text = direction === 'en-es' ? p.es : p.en;
-  const lang = direction === 'en-es' ? 'es-ES' : 'en-US';
-
+function speakPhraseText(text, lang) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
 
@@ -379,10 +545,6 @@ function speakPhrase(idx) {
                 voices.find(v => v.lang.startsWith(lang.substring(0, 2)));
   if (match) utter.voice = match;
 
-  // Highlight the card
-  const cards = document.querySelectorAll('.phrase-card');
-  cards.forEach(c => c.classList.remove('speaking'));
-
   utter.onstart = () => {
     document.getElementById('speakingText').textContent = text;
     document.getElementById('nowSpeaking').classList.add('show');
@@ -392,6 +554,50 @@ function speakPhrase(idx) {
   };
 
   window.speechSynthesis.speak(utter);
+}
+
+// ===== CUSTOM PHRASE MANAGEMENT =====
+function openAddModal() {
+  document.getElementById('newEn').value = '';
+  document.getElementById('newEs').value = '';
+  document.getElementById('modalError').textContent = '';
+  document.getElementById('addModal').classList.add('show');
+}
+function closeModal() {
+  document.getElementById('addModal').classList.remove('show');
+}
+function closeModalIfOutside(e) {
+  if (e.target === document.getElementById('addModal')) closeModal();
+}
+function saveCustomPhrase() {
+  const en = document.getElementById('newEn').value.trim();
+  const es = document.getElementById('newEs').value.trim();
+  const cat = document.getElementById('newCat').value;
+  const errEl = document.getElementById('modalError');
+
+  if (!en) { errEl.textContent = 'Please enter the English phrase.'; return; }
+  if (!es) { errEl.textContent = 'Please enter the Spanish translation.'; return; }
+
+  const newPhrase = {
+    cat,
+    en,
+    es,
+    custom: true,
+    id: 'c_' + Date.now()
+  };
+  CUSTOM_PHRASES.push(newPhrase);
+  saveCustomPhrasesToStorage(CUSTOM_PHRASES);
+  closeModal();
+  activeCat = cat; // Switch to the category we just added to
+  renderCategories();
+  renderPhrases();
+}
+function deleteCustomPhrase(id) {
+  if (!confirm('Delete this phrase?')) return;
+  CUSTOM_PHRASES = CUSTOM_PHRASES.filter(p => p.id !== id);
+  saveCustomPhrasesToStorage(CUSTOM_PHRASES);
+  renderCategories();
+  renderPhrases();
 }
 
 init();
