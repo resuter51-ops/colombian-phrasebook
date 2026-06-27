@@ -475,7 +475,7 @@ function init() {
 
 function renderCategories() {
   const row = document.getElementById('catRow');
-  row.innerHTML = CATEGORIES.map(cat =>
+  row.innerHTML = getCategories().map(cat =>
     `<button class="cat-pill ${cat === activeCat ? 'active' : ''}" onclick="setCat('${cat.replace(/'/g, "\\'")}')">${cat}</button>`
   ).join('');
 }
