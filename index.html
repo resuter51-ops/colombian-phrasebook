@@ -522,7 +522,7 @@ function renderPhrases() {
       : '';
     const customBadge = isCustom ? '<span class="custom-badge">MY PHRASE</span>' : '';
     return `
-      <div class="phrase-card" style="position:relative;" onclick="speakPhraseText('${secondary.replace(/'/g, "\'")}', '${isEnEs ? 'es-ES' : 'en-US'}')">
+      <div class="phrase-card" style="position:relative;" onclick="speakPhraseText('${secondary.replace(/'/g, "\\'")}', '${isEnEs ? 'es-ES' : 'en-US'}')">
         ${deleteBtn}
         <div class="phrase-tag">${p.cat}${customBadge}</div>
         <div class="phrase-en">${primaryLang} ${primary}</div>
